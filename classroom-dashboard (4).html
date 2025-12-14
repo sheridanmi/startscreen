@@ -1,0 +1,3994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --accent-coral: #ff6b6b;
+            --accent-mint: #4ecdc4;
+            --accent-gold: #ffd93d;
+            --accent-lavender: #a29bfe;
+            --accent-peach: #fab1a0;
+            --text-light: #ffffff;
+            --text-muted: rgba(255,255,255,0.7);
+            --widget-bg: rgba(255,255,255,0.08);
+            --widget-border: rgba(255,255,255,0.15);
+            --shadow-glow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            overflow: hidden;
+            color: var(--text-light);
+        }
+
+        /* Background Layer */
+        #background-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            transition: background 0.5s ease;
+        }
+
+        #background-layer.chalkboard {
+            background: linear-gradient(135deg, #2d4a3e 0%, #1e3329 50%, #152419 100%);
+        }
+
+        #background-layer.whiteboard {
+            background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 50%, #ddd 100%);
+        }
+
+        #background-layer.sunset {
+            background: linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #ff9ff3 100%);
+        }
+
+        #background-layer.ocean {
+            background: linear-gradient(135deg, #0abde3 0%, #10ac84 50%, #1dd1a1 100%);
+        }
+
+        /* Drawing Canvas Layer */
+        #draw-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        #draw-canvas.active {
+            pointer-events: auto;
+            cursor: crosshair;
+            z-index: 50;
+        }
+
+        /* Widget Container */
+        #widget-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: calc(100% - 80px);
+            z-index: 2;
+        }
+
+        /* Widget Base Styles */
+        .widget {
+            position: absolute;
+            background: var(--widget-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--widget-border);
+            border-radius: 20px;
+            box-shadow: var(--shadow-glow);
+            overflow: hidden;
+            transition: box-shadow 0.3s ease;
+            min-width: 150px;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .widget:hover {
+            box-shadow: 0 12px 48px rgba(0,0,0,0.4);
+        }
+
+        .widget-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.05);
+            cursor: move;
+            user-select: none;
+            flex-shrink: 0;
+        }
+
+        .widget-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.8;
+        }
+
+        .widget-close {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: rgba(255,107,107,0.3);
+            color: var(--accent-coral);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .widget-close:hover {
+            background: var(--accent-coral);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .widget-content {
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Resize Handle */
+        .resize-handle {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 20px;
+            height: 20px;
+            cursor: se-resize;
+            opacity: 0.5;
+        }
+
+        .resize-handle::after {
+            content: '';
+            position: absolute;
+            bottom: 6px;
+            right: 6px;
+            width: 8px;
+            height: 8px;
+            border-right: 2px solid var(--text-muted);
+            border-bottom: 2px solid var(--text-muted);
+        }
+
+        /* Clock Widget */
+        .clock-display {
+            font-family: 'Space Mono', monospace;
+            font-size: 48px;
+            font-weight: 700;
+            text-align: center;
+            background: linear-gradient(135deg, var(--accent-mint), var(--accent-lavender));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .clock-date {
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        /* Timer Widget */
+        .timer-display {
+            font-family: 'Space Mono', monospace;
+            font-size: 56px;
+            font-weight: 700;
+            text-align: center;
+            color: var(--accent-gold);
+            text-shadow: 0 0 30px rgba(255,217,61,0.3);
+        }
+
+        .timer-display.hidden {
+            display: none;
+        }
+
+        .timer-input-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .timer-input-container.hidden {
+            display: none;
+        }
+
+        .timer-input {
+            width: 70px;
+            font-family: 'Space Mono', monospace;
+            font-size: 48px;
+            font-weight: 700;
+            text-align: center;
+            color: var(--accent-gold);
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(255,217,61,0.3);
+            border-radius: 12px;
+            padding: 8px 4px;
+            outline: none;
+            -moz-appearance: textfield;
+        }
+
+        .timer-input::-webkit-outer-spin-button,
+        .timer-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .timer-input:focus {
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 20px rgba(255,217,61,0.2);
+        }
+
+        .timer-colon {
+            font-family: 'Space Mono', monospace;
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--accent-gold);
+        }
+
+        .timer-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 16px;
+        }
+
+        .timer-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .timer-btn.start {
+            background: var(--accent-mint);
+            color: var(--bg-primary);
+        }
+
+        .timer-btn.pause {
+            background: var(--accent-gold);
+            color: var(--bg-primary);
+        }
+
+        .timer-btn.reset {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-light);
+        }
+
+        .timer-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .timer-presets {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--widget-border);
+            background: transparent;
+            color: var(--text-muted);
+            border-radius: 8px;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .preset-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-light);
+        }
+
+        /* Dice Widget */
+        .dice-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .dice-display {
+            display: flex;
+            gap: 16px;
+        }
+
+        .dice {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(145deg, #fff, #e6e6e6);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--bg-primary);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .dice.rolling {
+            animation: diceRoll 0.5s ease-in-out;
+        }
+
+        @keyframes diceRoll {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(-15deg) scale(1.1); }
+            50% { transform: rotate(15deg) scale(0.9); }
+            75% { transform: rotate(-10deg) scale(1.05); }
+        }
+
+        .roll-btn {
+            padding: 12px 32px;
+            background: linear-gradient(135deg, var(--accent-coral), var(--accent-peach));
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .roll-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255,107,107,0.4);
+        }
+
+        /* Random Name Picker Widget */
+        .name-picker-content {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .name-display {
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--accent-mint);
+            transition: all 0.3s ease;
+        }
+
+        .name-display.picking {
+            animation: namePulse 0.1s ease infinite;
+        }
+
+        @keyframes namePulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .name-input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--widget-border);
+            border-radius: 10px;
+            color: var(--text-light);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .name-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .pick-btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, var(--accent-lavender), var(--accent-mint));
+            border: none;
+            border-radius: 12px;
+            color: var(--bg-primary);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .pick-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(162,155,254,0.4);
+        }
+
+        .name-picker-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .manage-class-btn {
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--widget-border);
+            border-radius: 12px;
+            color: var(--text-light);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .manage-class-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Randomizer Tabs */
+        .randomizer-tabs {
+            display: flex;
+            border-bottom: 2px solid var(--widget-border);
+            margin-bottom: 16px;
+        }
+
+        .randomizer-tab {
+            flex: 1;
+            padding: 10px 12px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .randomizer-tab:hover {
+            color: var(--text-light);
+        }
+
+        .randomizer-tab.active {
+            color: var(--accent-mint);
+        }
+
+        .randomizer-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent-mint);
+        }
+
+        .randomizer-tab-content {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .randomizer-tab-content.hidden {
+            display: none;
+        }
+
+        /* Group Maker */
+        .group-config {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding: 16px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+        }
+
+        .group-config-label {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .group-count-selector {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .group-count-btn {
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--widget-border);
+            background: rgba(255,255,255,0.05);
+            color: var(--text-light);
+            font-size: 20px;
+            font-weight: 600;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .group-count-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: var(--accent-mint);
+        }
+
+        .group-count-display {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--accent-mint);
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .make-groups-btn {
+            width: 100%;
+        }
+
+        .groups-result {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .group-card {
+            background: rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 12px;
+            border-left: 4px solid var(--accent-mint);
+        }
+
+        .group-card-header {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--accent-mint);
+            margin-bottom: 8px;
+        }
+
+        .group-card-members {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .group-member {
+            padding: 4px 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .group-card:nth-child(2) { border-left-color: var(--accent-lavender); }
+        .group-card:nth-child(2) .group-card-header { color: var(--accent-lavender); }
+        .group-card:nth-child(3) { border-left-color: var(--accent-gold); }
+        .group-card:nth-child(3) .group-card-header { color: var(--accent-gold); }
+        .group-card:nth-child(4) { border-left-color: var(--accent-coral); }
+        .group-card:nth-child(4) .group-card-header { color: var(--accent-coral); }
+        .group-card:nth-child(5) { border-left-color: var(--accent-peach); }
+        .group-card:nth-child(5) .group-card-header { color: var(--accent-peach); }
+        .group-card:nth-child(6) { border-left-color: #74b9ff; }
+        .group-card:nth-child(6) .group-card-header { color: #74b9ff; }
+        .group-card:nth-child(7) { border-left-color: #fd79a8; }
+        .group-card:nth-child(7) .group-card-header { color: #fd79a8; }
+        .group-card:nth-child(8) { border-left-color: #55efc4; }
+        .group-card:nth-child(8) .group-card-header { color: #55efc4; }
+
+        /* Text Box Widget */
+        .text-box-content {
+            width: 100%;
+            height: 100%;
+        }
+
+        .text-display {
+            width: 100%;
+            min-height: 100px;
+            padding: 16px;
+            background: transparent;
+            border: none;
+            color: var(--text-light);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 24px;
+            text-align: center;
+            resize: none;
+            outline: none;
+        }
+
+        .text-display::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* Stopwatch Widget */
+        .stopwatch-display {
+            font-family: 'Space Mono', monospace;
+            font-size: 42px;
+            font-weight: 700;
+            text-align: center;
+            color: var(--accent-peach);
+        }
+
+        .stopwatch-ms {
+            font-size: 24px;
+            opacity: 0.7;
+        }
+
+        /* Traffic Light Widget */
+        .traffic-light {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 30px;
+        }
+
+        .traffic-light-bulb {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            opacity: 0.3;
+        }
+
+        .traffic-light-bulb.red { background: #ff4444; }
+        .traffic-light-bulb.yellow { background: #ffcc00; }
+        .traffic-light-bulb.green { background: #44ff44; }
+
+        .traffic-light-bulb.active {
+            opacity: 1;
+            box-shadow: 0 0 30px currentColor;
+        }
+
+        .traffic-light-bulb.red.active { box-shadow: 0 0 30px #ff4444; }
+        .traffic-light-bulb.yellow.active { box-shadow: 0 0 30px #ffcc00; }
+        .traffic-light-bulb.green.active { box-shadow: 0 0 30px #44ff44; }
+
+        /* QR Code Widget */
+        .qr-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .qr-input {
+            width: 100%;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--widget-border);
+            border-radius: 8px;
+            color: var(--text-light);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 14px;
+        }
+
+        .qr-display {
+            background: white;
+            padding: 12px;
+            border-radius: 12px;
+        }
+
+        .qr-display img {
+            display: block;
+        }
+
+        /* Poll Widget */
+        .poll-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: stretch;
+        }
+
+        .poll-tabs {
+            display: flex;
+            border-bottom: 2px solid var(--widget-border);
+            margin-bottom: 8px;
+        }
+
+        .poll-tab {
+            flex: 1;
+            padding: 12px 16px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .poll-tab:hover {
+            color: var(--text-light);
+        }
+
+        .poll-tab.active {
+            color: var(--accent-mint);
+        }
+
+        .poll-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent-mint);
+        }
+
+        .poll-tab-content {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .poll-tab-content.hidden {
+            display: none;
+        }
+
+        .poll-section-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        .poll-type-selector {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .poll-type-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 20px;
+            background: rgba(255,255,255,0.05);
+            border: 2px solid var(--widget-border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .poll-type-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        .poll-type-btn.active {
+            border-color: var(--accent-mint);
+            background: rgba(78,205,196,0.1);
+        }
+
+        .poll-type-check {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 22px;
+            height: 22px;
+            background: var(--accent-mint);
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: var(--bg-primary);
+            font-weight: bold;
+        }
+
+        .poll-type-btn.active .poll-type-check {
+            display: flex;
+        }
+
+        .poll-type-icons {
+            display: flex;
+            gap: 4px;
+        }
+
+        .poll-type-icons span {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--bg-primary);
+        }
+
+        .poll-type-btn span.label {
+            font-size: 11px;
+            color: var(--text-muted);
+            width: auto;
+            height: auto;
+            background: none !important;
+        }
+
+        .poll-question-input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--widget-border);
+            border-radius: 10px;
+            color: var(--text-light);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 14px;
+            resize: none;
+            min-height: 70px;
+        }
+
+        .poll-question-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .poll-char-count {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: right;
+            margin-top: -8px;
+        }
+
+        .poll-answer-options {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .poll-radio-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .poll-radio-option:hover {
+            background: rgba(255,255,255,0.08);
+        }
+
+        .poll-radio-option input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--accent-mint);
+        }
+
+        .poll-radio-option span {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .poll-radio-option.chart-type {
+            flex-direction: row;
+            padding: 10px 14px;
+        }
+
+        .poll-radio-option.chart-type .chart-icon {
+            background: none;
+            width: auto;
+            height: auto;
+        }
+
+        .poll-toggle-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .poll-toggle {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .poll-toggle input {
+            display: none;
+        }
+
+        .poll-toggle-slider {
+            width: 44px;
+            height: 24px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 12px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .poll-toggle-slider::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .poll-toggle input:checked + .poll-toggle-slider {
+            background: var(--accent-mint);
+        }
+
+        .poll-toggle input:checked + .poll-toggle-slider::after {
+            left: 22px;
+        }
+
+        .poll-chart-options {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .poll-reset-settings-btn {
+            margin-top: 12px;
+            padding: 10px 20px;
+            background: transparent;
+            border: 1px solid var(--accent-coral);
+            border-radius: 8px;
+            color: var(--accent-coral);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            align-self: flex-start;
+        }
+
+        .poll-reset-settings-btn:hover {
+            background: rgba(255,107,107,0.1);
+        }
+
+        .poll-start-btn {
+            padding: 14px 28px;
+            background: var(--accent-mint);
+            border: none;
+            border-radius: 10px;
+            color: var(--bg-primary);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 8px;
+        }
+
+        .poll-start-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(78,205,196,0.4);
+        }
+
+        .poll-back-btn {
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 8px;
+            color: var(--text-light);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            align-self: flex-start;
+        }
+
+        .poll-back-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .poll-display {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .poll-display.hidden {
+            display: none;
+        }
+
+        .poll-question-display {
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            color: var(--text-light);
+            padding: 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            width: 100%;
+        }
+
+        .poll-question-display:empty {
+            display: none;
+        }
+
+        .poll-options {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .poll-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .poll-option:hover {
+            transform: scale(1.1);
+        }
+
+        .poll-option-circle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a1a2e;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .poll-option-count {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--bg-primary);
+            color: var(--text-light);
+            font-size: 14px;
+            font-weight: 600;
+            min-width: 24px;
+            height: 24px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid currentColor;
+        }
+
+        .poll-chart {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .poll-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .poll-bar-label {
+            width: 40px;
+            font-size: 20px;
+            text-align: center;
+        }
+
+        .poll-bar-container {
+            flex: 1;
+            height: 28px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .poll-bar-fill {
+            height: 100%;
+            border-radius: 14px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--bg-primary);
+            min-width: fit-content;
+        }
+
+        .poll-reset-btn {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 8px;
+            color: var(--text-muted);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            align-self: center;
+        }
+
+        .poll-reset-btn:hover {
+            background: rgba(255,255,255,0.2);
+            color: var(--text-light);
+        }
+
+        /* TI-84 Calculator Widget */
+        .ti84-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ti84-launch-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            text-align: center;
+        }
+
+        .ti84-preview {
+            width: 120px;
+            height: auto;
+        }
+
+        .ti84-calc-icon svg {
+            width: 100%;
+            height: auto;
+            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+        }
+
+        .ti84-info {
+            font-size: 14px;
+            color: var(--text-light);
+            max-width: 240px;
+            line-height: 1.4;
+        }
+
+        .ti84-launch-btn {
+            padding: 16px 32px;
+            background: linear-gradient(135deg, var(--accent-mint), #45b7aa);
+            border: none;
+            border-radius: 12px;
+            color: var(--bg-primary);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(78,205,196,0.3);
+        }
+
+        .ti84-launch-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(78,205,196,0.4);
+        }
+
+        .ti84-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .modal.hidden {
+            display: none;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--widget-border);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid var(--widget-border);
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: rgba(255,107,107,0.3);
+            color: var(--accent-coral);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            background: var(--accent-coral);
+            color: white;
+        }
+
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .class-manager-section {
+            margin-bottom: 24px;
+        }
+
+        .class-manager-section h3 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .class-save-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .class-save-row input {
+            flex: 1;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--widget-border);
+            border-radius: 10px;
+            color: var(--text-light);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            padding: 12px 24px;
+            background: var(--accent-mint);
+            border: none;
+            border-radius: 10px;
+            color: var(--bg-primary);
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(78,205,196,0.3);
+        }
+
+        .saved-class-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+
+        .saved-class-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .saved-class-name {
+            font-weight: 600;
+        }
+
+        .saved-class-count {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .saved-class-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .saved-class-actions button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-load {
+            background: var(--accent-lavender);
+            color: var(--bg-primary);
+        }
+
+        .btn-delete {
+            background: rgba(255,107,107,0.2);
+            color: var(--accent-coral);
+        }
+
+        .btn-load:hover, .btn-delete:hover {
+            transform: translateY(-2px);
+        }
+
+        .no-classes-message {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 20px;
+        }
+
+        /* Layout Manager Styles */
+        .modal-large {
+            max-width: 600px;
+        }
+
+        .layout-save-section {
+            background: rgba(78,205,196,0.1);
+            border: 1px solid rgba(78,205,196,0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .layout-save-section h3 {
+            margin-bottom: 8px;
+            color: var(--accent-mint);
+        }
+
+        .layout-hint {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .layout-list-section h3 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .saved-layout-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .saved-layout-item:hover {
+            background: rgba(255,255,255,0.08);
+        }
+
+        .saved-layout-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+        }
+
+        .saved-layout-name {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .saved-layout-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .saved-layout-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .saved-layout-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-load-layout {
+            padding: 10px 20px;
+            background: var(--accent-mint);
+            border: none;
+            border-radius: 8px;
+            color: var(--bg-primary);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-load-layout:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(78,205,196,0.3);
+        }
+
+        .btn-delete-layout {
+            padding: 10px 14px;
+            background: rgba(255,107,107,0.15);
+            border: none;
+            border-radius: 8px;
+            color: var(--accent-coral);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-delete-layout:hover {
+            background: rgba(255,107,107,0.25);
+        }
+
+        .no-layouts-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        .no-layouts-message .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .no-layouts-message p {
+            margin-bottom: 8px;
+        }
+
+        .layout-widget-preview {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .layout-widget-tag {
+            padding: 4px 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Sound Level Widget */
+        .sound-level-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .sound-meter {
+            width: 100%;
+            height: 30px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .sound-meter-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-mint), var(--accent-gold), var(--accent-coral));
+            border-radius: 15px;
+            transition: width 0.1s ease;
+            width: 0%;
+        }
+
+        .sound-level-text {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .sound-toggle {
+            padding: 10px 20px;
+            background: var(--accent-mint);
+            border: none;
+            border-radius: 10px;
+            color: var(--bg-primary);
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Bottom Toolbar */
+        #toolbar {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .toolbar-main {
+            background: rgba(30,30,40,0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-bottom: none;
+            border-radius: 20px 20px 0 0;
+            padding: 10px 16px;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .toolbar-btn {
+            width: 54px;
+            height: 54px;
+            border: none;
+            background: rgba(255,255,255,0.08);
+            border-radius: 14px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            transition: all 0.2s ease;
+            color: var(--text-light);
+        }
+
+        .toolbar-btn:hover {
+            background: rgba(255,255,255,0.15);
+            transform: translateY(-3px);
+        }
+
+        .toolbar-btn.active {
+            background: var(--accent-mint);
+            color: var(--bg-primary);
+        }
+
+        .toolbar-btn svg {
+            width: 22px;
+            height: 22px;
+        }
+
+        .toolbar-btn span {
+            font-size: 9px;
+            font-weight: 500;
+            text-transform: lowercase;
+            letter-spacing: 0.3px;
+            opacity: 0.8;
+        }
+
+        .toolbar-divider {
+            width: 1px;
+            height: 36px;
+            background: rgba(255,255,255,0.15);
+            margin: 0 6px;
+        }
+
+        /* More Menu */
+        .more-menu {
+            display: none;
+            background: rgba(30,30,40,0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 8px;
+            min-width: 280px;
+        }
+
+        .more-menu.visible {
+            display: block;
+            animation: slideUp 0.2s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .more-menu-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .more-menu-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 14px 10px;
+            background: rgba(255,255,255,0.06);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            color: var(--text-light);
+            transition: all 0.2s ease;
+        }
+
+        .more-menu-btn:hover {
+            background: rgba(255,255,255,0.12);
+            transform: translateY(-2px);
+        }
+
+        .more-menu-btn svg {
+            width: 26px;
+            height: 26px;
+        }
+
+        .more-menu-btn span {
+            font-size: 11px;
+            font-weight: 500;
+            opacity: 0.8;
+        }
+
+        .more-menu-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+            margin: 14px 0;
+        }
+
+        .more-menu-section {
+            display: flex;
+            gap: 10px;
+        }
+
+        .more-menu-section .more-menu-btn {
+            flex: 1;
+        }
+
+        /* Draw Tools */
+        #draw-tools {
+            position: fixed;
+            bottom: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 12px 16px;
+            display: none;
+            gap: 12px;
+            align-items: center;
+            z-index: 99;
+        }
+
+        #draw-tools.visible {
+            display: flex;
+        }
+
+        .color-btn {
+            width: 30px;
+            height: 30px;
+            border: 2px solid transparent;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .color-btn:hover, .color-btn.active {
+            transform: scale(1.2);
+            border-color: white;
+        }
+
+        .brush-size {
+            width: 100px;
+        }
+
+        .eraser-btn {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 8px;
+            color: var(--text-light);
+            font-family: 'Fredoka', sans-serif;
+            cursor: pointer;
+        }
+
+        .eraser-btn.active {
+            background: var(--accent-coral);
+        }
+
+        .clear-btn {
+            padding: 8px 16px;
+            background: var(--accent-coral);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-family: 'Fredoka', sans-serif;
+            cursor: pointer;
+        }
+
+        /* Background Picker */
+        #bg-picker {
+            position: fixed;
+            bottom: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 12px 16px;
+            display: none;
+            gap: 10px;
+            z-index: 99;
+        }
+
+        #bg-picker.visible {
+            display: flex;
+        }
+
+        .bg-option {
+            width: 40px;
+            height: 40px;
+            border: 2px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .bg-option:hover, .bg-option.active {
+            border-color: white;
+            transform: scale(1.1);
+        }
+
+        .bg-option.default { background: linear-gradient(135deg, #1a1a2e, #0f3460); }
+        .bg-option.chalkboard { background: linear-gradient(135deg, #2d4a3e, #152419); }
+        .bg-option.whiteboard { background: linear-gradient(135deg, #f5f5f5, #ddd); }
+        .bg-option.sunset { background: linear-gradient(135deg, #ff6b6b, #ff9ff3); }
+        .bg-option.ocean { background: linear-gradient(135deg, #0abde3, #1dd1a1); }
+
+        .bg-divider {
+            width: 1px;
+            height: 30px;
+            background: rgba(255,255,255,0.2);
+            margin: 0 4px;
+        }
+
+        .bg-option.upload {
+            background: rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+
+        .bg-option.upload:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: var(--accent-mint);
+        }
+
+        .bg-option.clear-bg {
+            background: rgba(255,107,107,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--accent-coral);
+        }
+
+        .bg-option.clear-bg:hover {
+            background: rgba(255,107,107,0.4);
+            border-color: var(--accent-coral);
+        }
+
+        .bg-option.custom-active {
+            border-color: var(--accent-mint);
+            box-shadow: 0 0 10px rgba(78,205,196,0.5);
+        }
+
+        /* Fullscreen button */
+        #fullscreen-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            width: 44px;
+            height: 44px;
+            border: none;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            cursor: pointer;
+            color: var(--text-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        #fullscreen-btn:hover {
+            background: rgba(0,0,0,0.6);
+            transform: scale(1.05);
+        }
+
+        #fullscreen-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Layer -->
+    <div id="background-layer"></div>
+    
+    <!-- Drawing Canvas -->
+    <canvas id="draw-canvas"></canvas>
+    
+    <!-- Widget Container -->
+    <div id="widget-container"></div>
+    
+    <!-- Fullscreen Button -->
+    <button id="fullscreen-btn" title="Toggle Fullscreen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+    </button>
+    
+    <!-- Draw Tools -->
+    <div id="draw-tools">
+        <button class="color-btn active" style="background: #ffffff" data-color="#ffffff"></button>
+        <button class="color-btn" style="background: #ff6b6b" data-color="#ff6b6b"></button>
+        <button class="color-btn" style="background: #4ecdc4" data-color="#4ecdc4"></button>
+        <button class="color-btn" style="background: #ffd93d" data-color="#ffd93d"></button>
+        <button class="color-btn" style="background: #a29bfe" data-color="#a29bfe"></button>
+        <input type="range" class="brush-size" min="2" max="30" value="4">
+        <button class="eraser-btn">Eraser</button>
+        <button class="clear-btn">Clear</button>
+    </div>
+    
+    <!-- Background Picker -->
+    <div id="bg-picker">
+        <button class="bg-option default active" data-bg="default" title="Night Sky"></button>
+        <button class="bg-option chalkboard" data-bg="chalkboard" title="Chalkboard"></button>
+        <button class="bg-option whiteboard" data-bg="whiteboard" title="Whiteboard"></button>
+        <button class="bg-option sunset" data-bg="sunset" title="Sunset"></button>
+        <button class="bg-option ocean" data-bg="ocean" title="Ocean"></button>
+        <div class="bg-divider"></div>
+        <label class="bg-option upload" title="Upload Image">
+            <input type="file" id="bg-image-upload" accept="image/*" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+        </label>
+        <button class="bg-option clear-bg" id="clear-bg-btn" title="Clear Custom Image" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+    </div>
+    
+    
+    <!-- Class Manager Modal -->
+    <div id="class-manager-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Class Manager</h2>
+                <button class="modal-close" onclick="closeClassManager()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="class-manager-section">
+                    <h3>Save Current Names as Class</h3>
+                    <div class="class-save-row">
+                        <input type="text" id="new-class-name" placeholder="Enter class name (e.g., Period 1)">
+                        <button class="btn-primary" onclick="saveCurrentClass()">Save</button>
+                    </div>
+                </div>
+                <div class="class-manager-section">
+                    <h3>Saved Classes</h3>
+                    <div id="saved-classes-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Layout Manager Modal -->
+    <div id="layout-manager-modal" class="modal hidden">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>📁 Saved Layouts</h2>
+                <button class="modal-close" onclick="closeLayoutManager()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="layout-save-section">
+                    <h3>Save Current Board</h3>
+                    <p class="layout-hint">Save your current widget setup, positions, and background to load later.</p>
+                    <div class="class-save-row">
+                        <input type="text" id="new-layout-name" placeholder="Enter layout name (e.g., Morning Routine, Math Class)">
+                        <button class="btn-primary" onclick="saveCurrentLayout()">💾 Save Layout</button>
+                    </div>
+                </div>
+                <div class="layout-list-section">
+                    <h3>Your Saved Layouts</h3>
+                    <div id="saved-layouts-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bottom Toolbar -->
+    <div id="toolbar">
+        <div class="toolbar-main">
+            <button class="toolbar-btn" id="bg-btn" title="Background">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <path d="M21 15l-5-5L5 21"/>
+                </svg>
+                <span>background</span>
+            </button>
+            <button class="toolbar-btn" id="draw-btn" title="Draw">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+                    <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+                    <path d="M2 2l7.586 7.586"/>
+                </svg>
+                <span>draw</span>
+            </button>
+            <div class="toolbar-divider"></div>
+            <button class="toolbar-btn widget-quick-btn" data-widget="randomizer" title="Random Name Picker">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                <span>randomizer</span>
+            </button>
+            <button class="toolbar-btn widget-quick-btn" data-widget="poll" title="Poll">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 20V10M12 20V4M6 20v-6"/>
+                </svg>
+                <span>poll</span>
+            </button>
+            <button class="toolbar-btn widget-quick-btn" data-widget="timer" title="Timer">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="13" r="8"/>
+                    <path d="M12 9v4l2 2M5 3L2 6M22 6l-3-3M12 5V3"/>
+                </svg>
+                <span>timer</span>
+            </button>
+            <button class="toolbar-btn widget-quick-btn" data-widget="stopwatch" title="Stopwatch">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="13" r="8"/>
+                    <path d="M12 9v4M10 2h4"/>
+                </svg>
+                <span>stopwatch</span>
+            </button>
+            <button class="toolbar-btn widget-quick-btn" data-widget="text" title="Text">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 7V4h16v3M9 20h6M12 4v16"/>
+                </svg>
+                <span>text</span>
+            </button>
+            <button class="toolbar-btn widget-quick-btn" data-widget="traffic" title="Traffic Light">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="6" y="2" width="12" height="20" rx="2"/>
+                    <circle cx="12" cy="7" r="2"/>
+                    <circle cx="12" cy="12" r="2"/>
+                    <circle cx="12" cy="17" r="2"/>
+                </svg>
+                <span>traffic light</span>
+            </button>
+            <button class="toolbar-btn widget-quick-btn" data-widget="clock" title="Clock">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 6v6l4 2"/>
+                </svg>
+                <span>clock</span>
+            </button>
+            <div class="toolbar-divider"></div>
+            <button class="toolbar-btn" id="more-widgets-btn" title="More Widgets">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7"/>
+                    <rect x="14" y="3" width="7" height="7"/>
+                    <rect x="14" y="14" width="7" height="7"/>
+                    <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+                <span>more</span>
+            </button>
+        </div>
+        
+        <!-- Expandable More Menu -->
+        <div id="more-menu" class="more-menu">
+            <div class="more-menu-grid">
+                <button class="more-menu-btn widget-quick-btn" data-widget="dice">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="3"/>
+                        <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+                        <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
+                        <circle cx="8" cy="16" r="1.5" fill="currentColor"/>
+                        <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
+                        <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                    </svg>
+                    <span>dice</span>
+                </button>
+                <button class="more-menu-btn widget-quick-btn" data-widget="qr">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"/>
+                        <rect x="14" y="3" width="7" height="7"/>
+                        <rect x="3" y="14" width="7" height="7"/>
+                        <rect x="14" y="14" width="4" height="4"/>
+                        <path d="M21 14h-3v3h3v4h-4"/>
+                    </svg>
+                    <span>qr code</span>
+                </button>
+                <button class="more-menu-btn widget-quick-btn" data-widget="ti84">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="4" y="2" width="16" height="20" rx="2"/>
+                        <rect x="6" y="4" width="12" height="5" rx="1"/>
+                        <circle cx="8" cy="12" r="1" fill="currentColor"/>
+                        <circle cx="12" cy="12" r="1" fill="currentColor"/>
+                        <circle cx="16" cy="12" r="1" fill="currentColor"/>
+                        <circle cx="8" cy="15" r="1" fill="currentColor"/>
+                        <circle cx="12" cy="15" r="1" fill="currentColor"/>
+                        <circle cx="16" cy="15" r="1" fill="currentColor"/>
+                        <circle cx="8" cy="18" r="1" fill="currentColor"/>
+                        <circle cx="12" cy="18" r="1" fill="currentColor"/>
+                        <circle cx="16" cy="18" r="1" fill="currentColor"/>
+                    </svg>
+                    <span>calculator</span>
+                </button>
+            </div>
+            <div class="more-menu-divider"></div>
+            <div class="more-menu-section">
+                <button class="more-menu-btn" id="save-layout-btn-menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/>
+                        <polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    <span>save layout</span>
+                </button>
+                <button class="more-menu-btn" id="load-layout-btn-menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                        <line x1="12" y1="11" x2="12" y2="17"/>
+                        <polyline points="9 14 12 11 15 14"/>
+                    </svg>
+                    <span>load layout</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============== CORE APP STATE ==============
+        const state = {
+            widgets: [],
+            widgetIdCounter: 0,
+            drawing: {
+                active: false,
+                color: '#ffffff',
+                size: 4,
+                eraser: false
+            },
+            activeWidget: null,
+            dragOffset: { x: 0, y: 0 },
+            resizing: false
+        };
+
+        // ============== CANVAS SETUP ==============
+        const canvas = document.getElementById('draw-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // ============== DRAWING FUNCTIONALITY ==============
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (!state.drawing.active) return;
+            isDrawing = true;
+            [lastX, lastY] = [e.clientX, e.clientY];
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing || !state.drawing.active) return;
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(e.clientX, e.clientY);
+            ctx.strokeStyle = state.drawing.eraser ? 'rgba(0,0,0,1)' : state.drawing.color;
+            ctx.lineWidth = state.drawing.size;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            if (state.drawing.eraser) {
+                ctx.globalCompositeOperation = 'destination-out';
+            } else {
+                ctx.globalCompositeOperation = 'source-over';
+            }
+            
+            ctx.stroke();
+            [lastX, lastY] = [e.clientX, e.clientY];
+        });
+
+        canvas.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('mouseout', () => isDrawing = false);
+
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => {
+            if (!state.drawing.active) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            isDrawing = true;
+            [lastX, lastY] = [touch.clientX, touch.clientY];
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!isDrawing || !state.drawing.active) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(touch.clientX, touch.clientY);
+            ctx.strokeStyle = state.drawing.eraser ? 'rgba(0,0,0,1)' : state.drawing.color;
+            ctx.lineWidth = state.drawing.size;
+            ctx.lineCap = 'round';
+            ctx.globalCompositeOperation = state.drawing.eraser ? 'destination-out' : 'source-over';
+            ctx.stroke();
+            [lastX, lastY] = [touch.clientX, touch.clientY];
+        });
+
+        canvas.addEventListener('touchend', () => isDrawing = false);
+
+        // ============== TOOLBAR FUNCTIONALITY ==============
+        const drawBtn = document.getElementById('draw-btn');
+        const drawTools = document.getElementById('draw-tools');
+        const bgBtn = document.getElementById('bg-btn');
+        const bgPicker = document.getElementById('bg-picker');
+        const moreWidgetsBtn = document.getElementById('more-widgets-btn');
+        const moreMenu = document.getElementById('more-menu');
+
+        function closeAllMenus() {
+            drawTools.classList.remove('visible');
+            bgPicker.classList.remove('visible');
+            moreMenu.classList.remove('visible');
+            drawBtn.classList.remove('active');
+            bgBtn.classList.remove('active');
+            moreWidgetsBtn.classList.remove('active');
+        }
+
+        drawBtn.addEventListener('click', () => {
+            const wasActive = state.drawing.active;
+            closeAllMenus();
+            
+            if (!wasActive) {
+                state.drawing.active = true;
+                canvas.classList.add('active');
+                drawBtn.classList.add('active');
+                drawTools.classList.add('visible');
+            } else {
+                state.drawing.active = false;
+                canvas.classList.remove('active');
+            }
+        });
+
+        bgBtn.addEventListener('click', () => {
+            const wasVisible = bgPicker.classList.contains('visible');
+            closeAllMenus();
+            state.drawing.active = false;
+            canvas.classList.remove('active');
+            
+            if (!wasVisible) {
+                bgPicker.classList.add('visible');
+                bgBtn.classList.add('active');
+            }
+        });
+
+        moreWidgetsBtn.addEventListener('click', () => {
+            const wasVisible = moreMenu.classList.contains('visible');
+            closeAllMenus();
+            state.drawing.active = false;
+            canvas.classList.remove('active');
+            
+            if (!wasVisible) {
+                moreMenu.classList.add('visible');
+                moreWidgetsBtn.classList.add('active');
+            }
+        });
+
+        // Quick widget buttons (in main toolbar and more menu)
+        document.querySelectorAll('.widget-quick-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.dataset.widget;
+                const x = Math.random() * (window.innerWidth - 350) + 50;
+                const y = Math.random() * (window.innerHeight - 450) + 50;
+                createWidget(type, x, y);
+                closeAllMenus();
+            });
+        });
+
+        // Layout buttons in more menu
+        document.getElementById('save-layout-btn-menu').addEventListener('click', () => {
+            closeAllMenus();
+            document.getElementById('layout-manager-modal').classList.remove('hidden');
+            renderSavedLayouts();
+        });
+
+        document.getElementById('load-layout-btn-menu').addEventListener('click', () => {
+            closeAllMenus();
+            document.getElementById('layout-manager-modal').classList.remove('hidden');
+            renderSavedLayouts();
+        });
+
+        // Draw tool controls - stop propagation to prevent closing draw mode
+        document.getElementById('draw-tools').addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.drawing.color = btn.dataset.color;
+                state.drawing.eraser = false;
+                document.querySelector('.eraser-btn').classList.remove('active');
+            });
+        });
+
+        document.querySelector('.brush-size').addEventListener('input', (e) => {
+            e.stopPropagation();
+            state.drawing.size = e.target.value;
+        });
+
+        document.querySelector('.eraser-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.drawing.eraser = !state.drawing.eraser;
+            e.target.classList.toggle('active');
+        });
+
+        document.querySelector('.clear-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        // Background picker
+        document.querySelectorAll('.bg-option[data-bg]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.bg-option').forEach(b => b.classList.remove('active', 'custom-active'));
+                btn.classList.add('active');
+                const bgLayer = document.getElementById('background-layer');
+                bgLayer.className = btn.dataset.bg === 'default' ? '' : btn.dataset.bg;
+                bgLayer.style.backgroundImage = '';
+                document.getElementById('clear-bg-btn').style.display = 'none';
+            });
+        });
+
+        // Background image upload
+        document.getElementById('bg-image-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Validate it's an image
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                return;
+            }
+            
+            // Check file size (limit to 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('Image is too large. Please use an image under 10MB.');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const bgLayer = document.getElementById('background-layer');
+                bgLayer.className = 'custom-image';
+                bgLayer.style.backgroundImage = `url(${event.target.result})`;
+                bgLayer.style.backgroundSize = 'cover';
+                bgLayer.style.backgroundPosition = 'center';
+                
+                // Update UI
+                document.querySelectorAll('.bg-option').forEach(b => b.classList.remove('active', 'custom-active'));
+                document.querySelector('.bg-option.upload').classList.add('custom-active');
+                document.getElementById('clear-bg-btn').style.display = 'flex';
+                
+                // Save to state for layout saving
+                state.customBackgroundImage = event.target.result;
+            };
+            reader.readAsDataURL(file);
+            
+            // Reset file input so same file can be selected again
+            e.target.value = '';
+        });
+
+        // Clear custom background
+        document.getElementById('clear-bg-btn').addEventListener('click', function() {
+            const bgLayer = document.getElementById('background-layer');
+            bgLayer.className = '';
+            bgLayer.style.backgroundImage = '';
+            
+            document.querySelectorAll('.bg-option').forEach(b => b.classList.remove('active', 'custom-active'));
+            document.querySelector('.bg-option.default').classList.add('active');
+            this.style.display = 'none';
+            
+            state.customBackgroundImage = null;
+        });
+
+        // Fullscreen
+        document.getElementById('fullscreen-btn').addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        // ============== WIDGET SYSTEM ==============
+        const widgetContainer = document.getElementById('widget-container');
+
+        function createWidget(type, x = 100, y = 100) {
+            const id = state.widgetIdCounter++;
+            const widget = document.createElement('div');
+            widget.className = 'widget';
+            widget.id = `widget-${id}`;
+            widget.style.left = `${x}px`;
+            widget.style.top = `${y}px`;
+            
+            let content = '';
+            let title = '';
+            let width = 250;
+            let height = 'auto';
+            
+            switch(type) {
+                case 'clock':
+                    title = 'Clock';
+                    content = `
+                        <div class="clock-display" id="clock-${id}">00:00:00</div>
+                        <div class="clock-date" id="clock-date-${id}"></div>
+                    `;
+                    width = 280;
+                    break;
+                    
+                case 'timer':
+                    title = 'Timer';
+                    content = `
+                        <div class="timer-input-container" id="timer-input-container-${id}">
+                            <input type="number" class="timer-input" id="timer-min-${id}" value="5" min="0" max="99" placeholder="MM">
+                            <span class="timer-colon">:</span>
+                            <input type="number" class="timer-input" id="timer-sec-${id}" value="00" min="0" max="59" placeholder="SS">
+                        </div>
+                        <div class="timer-display hidden" id="timer-display-${id}">05:00</div>
+                        <div class="timer-controls">
+                            <button class="timer-btn start" onclick="toggleTimer(${id})">Start</button>
+                            <button class="timer-btn reset" onclick="resetTimer(${id})">Reset</button>
+                        </div>
+                        <div class="timer-presets">
+                            <button class="preset-btn" onclick="setTimer(${id}, 1)">1m</button>
+                            <button class="preset-btn" onclick="setTimer(${id}, 5)">5m</button>
+                            <button class="preset-btn" onclick="setTimer(${id}, 10)">10m</button>
+                            <button class="preset-btn" onclick="setTimer(${id}, 15)">15m</button>
+                            <button class="preset-btn" onclick="setTimer(${id}, 30)">30m</button>
+                        </div>
+                    `;
+                    width = 280;
+                    break;
+                    
+                case 'stopwatch':
+                    title = 'Stopwatch';
+                    content = `
+                        <div class="stopwatch-display">
+                            <span id="stopwatch-${id}">00:00</span><span class="stopwatch-ms" id="stopwatch-ms-${id}">.00</span>
+                        </div>
+                        <div class="timer-controls">
+                            <button class="timer-btn start" onclick="toggleStopwatch(${id})">Start</button>
+                            <button class="timer-btn reset" onclick="resetStopwatch(${id})">Reset</button>
+                        </div>
+                    `;
+                    width = 260;
+                    break;
+                    
+                case 'dice':
+                    title = 'Dice';
+                    content = `
+                        <div class="dice-container">
+                            <div class="dice-display">
+                                <div class="dice" id="dice1-${id}">🎲</div>
+                                <div class="dice" id="dice2-${id}">🎲</div>
+                            </div>
+                            <button class="roll-btn" onclick="rollDice(${id})">Roll Dice</button>
+                        </div>
+                    `;
+                    width = 220;
+                    break;
+                    
+                case 'randomizer':
+                    title = 'Random Name';
+                    content = `
+                        <div class="name-picker-content">
+                            <div class="randomizer-tabs">
+                                <button class="randomizer-tab active" onclick="switchRandomizerTab(${id}, 'picker')">Name Picker</button>
+                                <button class="randomizer-tab" onclick="switchRandomizerTab(${id}, 'groups')">Group Maker</button>
+                            </div>
+                            
+                            <div class="randomizer-tab-content" id="randomizer-picker-${id}">
+                                <div class="name-display" id="name-display-${id}">Click to pick!</div>
+                                <textarea class="name-input" id="name-input-${id}" placeholder="Enter names (one per line)...">Alice
+Bob
+Charlie
+Diana
+Eve</textarea>
+                                <div class="name-picker-buttons">
+                                    <button class="pick-btn" onclick="pickName(${id})">🎲 Pick Random Name</button>
+                                    <button class="manage-class-btn" onclick="openClassManager(${id})">📁 Classes</button>
+                                </div>
+                            </div>
+                            
+                            <div class="randomizer-tab-content hidden" id="randomizer-groups-${id}">
+                                <div class="group-config">
+                                    <label class="group-config-label">Number of groups:</label>
+                                    <div class="group-count-selector">
+                                        <button class="group-count-btn" onclick="adjustGroupCount(${id}, -1)">−</button>
+                                        <span class="group-count-display" id="group-count-${id}">3</span>
+                                        <button class="group-count-btn" onclick="adjustGroupCount(${id}, 1)">+</button>
+                                    </div>
+                                </div>
+                                <button class="pick-btn make-groups-btn" onclick="makeGroups(${id})">🎲 Make Random Groups</button>
+                                <div class="groups-result" id="groups-result-${id}"></div>
+                            </div>
+                        </div>
+                    `;
+                    width = 300;
+                    break;
+                    
+                case 'text':
+                    title = 'Text';
+                    content = `
+                        <div class="text-box-content">
+                            <textarea class="text-display" placeholder="Type here..."></textarea>
+                        </div>
+                    `;
+                    width = 300;
+                    break;
+                    
+                case 'traffic':
+                    title = 'Traffic Light';
+                    content = `
+                        <div class="traffic-light">
+                            <div class="traffic-light-bulb red" onclick="setTrafficLight(this, 'red')"></div>
+                            <div class="traffic-light-bulb yellow" onclick="setTrafficLight(this, 'yellow')"></div>
+                            <div class="traffic-light-bulb green active" onclick="setTrafficLight(this, 'green')"></div>
+                        </div>
+                    `;
+                    width = 140;
+                    break;
+                    
+                case 'qr':
+                    title = 'QR Code';
+                    content = `
+                        <div class="qr-content">
+                            <input type="text" class="qr-input" id="qr-input-${id}" placeholder="Enter URL..." value="https://example.com" onchange="generateQR(${id})">
+                            <div class="qr-display">
+                                <img id="qr-img-${id}" src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://example.com" width="120" height="120">
+                            </div>
+                        </div>
+                    `;
+                    width = 200;
+                    break;
+                    
+                case 'poll':
+                    title = 'Poll';
+                    content = `
+                        <div class="poll-container" id="poll-container-${id}">
+                            <div class="poll-tabs">
+                                <button class="poll-tab active" onclick="switchPollTab(${id}, 'type')">Question type</button>
+                                <button class="poll-tab" onclick="switchPollTab(${id}, 'settings')">Settings</button>
+                            </div>
+                            
+                            <div class="poll-tab-content" id="poll-tab-type-${id}">
+                                <div class="poll-section-label">Poll type</div>
+                                <div class="poll-type-selector" id="poll-type-selector-${id}">
+                                    <button class="poll-type-btn active" data-type="abc" onclick="selectPollTypeOption(${id}, 'abc', this)">
+                                        <div class="poll-type-check">✓</div>
+                                        <div class="poll-type-icons">
+                                            <span style="background: #4ecdc4;">A</span>
+                                            <span style="background: #a8e6cf;">B</span>
+                                            <span style="background: #ffd93d;">C</span>
+                                        </div>
+                                        <span class="label">Multiple choice</span>
+                                    </button>
+                                    <button class="poll-type-btn" data-type="smiley" onclick="selectPollTypeOption(${id}, 'smiley', this)">
+                                        <div class="poll-type-check">✓</div>
+                                        <div class="poll-type-icons">
+                                            <span style="background: #4ecdc4;">😊</span>
+                                            <span style="background: #ffd93d;">😐</span>
+                                            <span style="background: #ff6b6b;">😟</span>
+                                        </div>
+                                        <span class="label">Smileys</span>
+                                    </button>
+                                    <button class="poll-type-btn" data-type="truefalse" onclick="selectPollTypeOption(${id}, 'truefalse', this)">
+                                        <div class="poll-type-check">✓</div>
+                                        <div class="poll-type-icons">
+                                            <span style="background: #4ecdc4;">✓</span>
+                                            <span style="background: #ff6b6b;">✗</span>
+                                        </div>
+                                        <span class="label">True / False</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="poll-tab-content hidden" id="poll-tab-settings-${id}">
+                                <div class="poll-section-label">Your question</div>
+                                <textarea class="poll-question-input" id="poll-question-${id}" placeholder="What do you think of today's lesson?" maxlength="160"></textarea>
+                                <div class="poll-char-count"><span id="poll-char-count-${id}">0</span> / 160</div>
+                                
+                                <div class="poll-section-label">Answer options</div>
+                                <div class="poll-answer-options" id="poll-answer-options-${id}">
+                                    <label class="poll-radio-option">
+                                        <input type="radio" name="poll-answers-${id}" value="2" onchange="setPollAnswerCount(${id}, 2)">
+                                        <span style="background:#4ecdc4">😊</span><span style="background:#ff6b6b">😟</span>
+                                    </label>
+                                    <label class="poll-radio-option">
+                                        <input type="radio" name="poll-answers-${id}" value="3" checked onchange="setPollAnswerCount(${id}, 3)">
+                                        <span style="background:#4ecdc4">😊</span><span style="background:#ffd93d">😐</span><span style="background:#ff6b6b">😟</span>
+                                    </label>
+                                    <label class="poll-radio-option">
+                                        <input type="radio" name="poll-answers-${id}" value="4" onchange="setPollAnswerCount(${id}, 4)">
+                                        <span style="background:#4ecdc4">😊</span><span style="background:#a8e6cf">🙂</span><span style="background:#ffd93d">😐</span><span style="background:#ff6b6b">😟</span>
+                                    </label>
+                                    <label class="poll-radio-option">
+                                        <input type="radio" name="poll-answers-${id}" value="5" onchange="setPollAnswerCount(${id}, 5)">
+                                        <span style="background:#4ecdc4">😊</span><span style="background:#a8e6cf">🙂</span><span style="background:#ffd93d">😐</span><span style="background:#fab1a0">🙁</span><span style="background:#ff6b6b">😟</span>
+                                    </label>
+                                </div>
+                                
+                                <div class="poll-section-label">Poll settings</div>
+                                <div class="poll-toggle-options">
+                                    <label class="poll-toggle">
+                                        <input type="checkbox" id="poll-hide-results-${id}">
+                                        <span class="poll-toggle-slider"></span>
+                                        Hide results
+                                    </label>
+                                </div>
+                                
+                                <div class="poll-section-label">Chart type</div>
+                                <div class="poll-chart-options" id="poll-chart-options-${id}">
+                                    <label class="poll-radio-option chart-type">
+                                        <input type="radio" name="poll-chart-${id}" value="bar" checked onchange="setPollChartType(${id}, 'bar')">
+                                        <span class="chart-icon">📊</span> Bar
+                                    </label>
+                                    <label class="poll-radio-option chart-type">
+                                        <input type="radio" name="poll-chart-${id}" value="pie" onchange="setPollChartType(${id}, 'pie')">
+                                        <span class="chart-icon">🥧</span> Pie
+                                    </label>
+                                    <label class="poll-radio-option chart-type">
+                                        <input type="radio" name="poll-chart-${id}" value="none" onchange="setPollChartType(${id}, 'none')">
+                                        <span class="chart-icon">🔢</span> Numbers
+                                    </label>
+                                </div>
+                                
+                                <button class="poll-reset-settings-btn" onclick="resetPollResults(${id})">Reset results</button>
+                            </div>
+                            
+                            <div class="poll-display hidden" id="poll-display-${id}">
+                                <div class="poll-question-display" id="poll-question-display-${id}"></div>
+                                <div class="poll-options" id="poll-options-${id}"></div>
+                                <div class="poll-chart" id="poll-chart-${id}"></div>
+                            </div>
+                            
+                            <button class="poll-start-btn" id="poll-start-btn-${id}" onclick="startPoll(${id})">Start Poll</button>
+                            <button class="poll-back-btn hidden" id="poll-back-btn-${id}" onclick="editPoll(${id})">← Edit Poll</button>
+                        </div>
+                    `;
+                    width = 400;
+                    break;
+                    
+                case 'ti84':
+                    title = 'TI-84 Calculator';
+                    content = `
+                        <div class="ti84-container">
+                            <div class="ti84-launch-panel">
+                                <div class="ti84-preview">
+                                    <div class="ti84-calc-icon">
+                                        <svg viewBox="0 0 100 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <rect x="5" y="5" width="90" height="150" rx="8" fill="#2d3436" stroke="#636e72" stroke-width="2"/>
+                                            <rect x="12" y="12" width="76" height="45" rx="4" fill="#a8e6cf"/>
+                                            <rect x="15" y="15" width="70" height="39" rx="2" fill="#1a1a2e"/>
+                                            <text x="50" y="40" text-anchor="middle" fill="#4ecdc4" font-size="12" font-family="monospace">TI-84+CE</text>
+                                            <g fill="#636e72">
+                                                <rect x="15" y="65" width="16" height="12" rx="2"/>
+                                                <rect x="35" y="65" width="16" height="12" rx="2"/>
+                                                <rect x="55" y="65" width="16" height="12" rx="2"/>
+                                                <rect x="75" y="65" width="10" height="12" rx="2"/>
+                                                <rect x="15" y="82" width="16" height="12" rx="2"/>
+                                                <rect x="35" y="82" width="16" height="12" rx="2"/>
+                                                <rect x="55" y="82" width="16" height="12" rx="2"/>
+                                                <rect x="75" y="82" width="10" height="12" rx="2"/>
+                                                <rect x="15" y="99" width="16" height="12" rx="2"/>
+                                                <rect x="35" y="99" width="16" height="12" rx="2"/>
+                                                <rect x="55" y="99" width="16" height="12" rx="2"/>
+                                                <rect x="75" y="99" width="10" height="12" rx="2"/>
+                                            </g>
+                                            <g fill="#4ecdc4">
+                                                <rect x="15" y="116" width="16" height="12" rx="2"/>
+                                                <rect x="35" y="116" width="16" height="12" rx="2"/>
+                                                <rect x="55" y="116" width="16" height="12" rx="2"/>
+                                                <rect x="75" y="116" width="10" height="12" rx="2"/>
+                                                <rect x="15" y="133" width="16" height="12" rx="2"/>
+                                                <rect x="35" y="133" width="16" height="12" rx="2"/>
+                                                <rect x="55" y="133" width="16" height="12" rx="2"/>
+                                                <rect x="75" y="133" width="10" height="12" rx="2"/>
+                                            </g>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <p class="ti84-info">Click below to open a fully functional TI-84 Plus CE graphing calculator</p>
+                                <button class="ti84-launch-btn" onclick="openTI84Popup()">
+                                    🚀 Launch TI-84 Calculator
+                                </button>
+                                <p class="ti84-hint">Opens in a popup window for best experience</p>
+                            </div>
+                        </div>
+                    `;
+                    width = 300;
+                    widget.style.height = '420px';
+                    break;
+            }
+            
+            widget.style.width = `${width}px`;
+            
+            widget.innerHTML = `
+                <div class="widget-header">
+                    <span class="widget-title">${title}</span>
+                    <button class="widget-close" onclick="removeWidget(${id})">×</button>
+                </div>
+                <div class="widget-content">
+                    ${content}
+                </div>
+                <div class="resize-handle"></div>
+            `;
+            
+            widgetContainer.appendChild(widget);
+            
+            // Store widget data
+            state.widgets.push({
+                id,
+                type,
+                element: widget,
+                data: {}
+            });
+            
+            // Initialize widget-specific functionality
+            initWidget(id, type);
+            
+            // Make draggable
+            makeDraggable(widget);
+            makeResizable(widget);
+            
+            // Close menu after adding
+            closeAllMenus();
+            
+            return widget;
+        }
+
+        function initWidget(id, type) {
+            const widgetData = state.widgets.find(w => w.id === id);
+            
+            switch(type) {
+                case 'clock':
+                    const clockId = id;
+                    function updateClock() {
+                        const now = new Date();
+                        const timeStr = now.toLocaleTimeString('en-US', { hour12: true });
+                        const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+                        const clockEl = document.getElementById(`clock-${clockId}`);
+                        const dateEl = document.getElementById(`clock-date-${clockId}`);
+                        if (clockEl) clockEl.textContent = timeStr;
+                        if (dateEl) dateEl.textContent = dateStr;
+                    }
+                    // Delay initial update to ensure DOM is ready
+                    setTimeout(updateClock, 0);
+                    widgetData.data.interval = setInterval(updateClock, 1000);
+                    break;
+                    
+                case 'timer':
+                    widgetData.data.seconds = 300; // 5 minutes default
+                    widgetData.data.initialSeconds = 300;
+                    widgetData.data.running = false;
+                    widgetData.data.interval = null;
+                    // Input fields are shown by default, no need to update display
+                    break;
+                    
+                case 'stopwatch':
+                    widgetData.data.ms = 0;
+                    widgetData.data.running = false;
+                    widgetData.data.interval = null;
+                    break;
+            }
+        }
+
+        function removeWidget(id) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (widget) {
+                if (widget.data.interval) clearInterval(widget.data.interval);
+                widget.element.remove();
+                state.widgets = state.widgets.filter(w => w.id !== id);
+            }
+        }
+
+        // ============== WIDGET FUNCTIONS ==============
+        
+        // Timer functions
+        function updateTimerDisplay(id) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (!widget) return;
+            const mins = Math.floor(widget.data.seconds / 60);
+            const secs = widget.data.seconds % 60;
+            const display = document.getElementById(`timer-display-${id}`);
+            if (display) {
+                display.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            }
+        }
+
+        window.toggleTimer = function(id) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (!widget) return;
+            
+            const inputContainer = document.getElementById(`timer-input-container-${id}`);
+            const display = document.getElementById(`timer-display-${id}`);
+            const btn = widget.element.querySelector('.timer-btn.start');
+            
+            // If not running, read from inputs and start
+            if (!widget.data.running) {
+                // Read values from inputs if visible
+                if (inputContainer && !inputContainer.classList.contains('hidden')) {
+                    const minInput = document.getElementById(`timer-min-${id}`);
+                    const secInput = document.getElementById(`timer-sec-${id}`);
+                    const mins = parseInt(minInput.value) || 0;
+                    const secs = parseInt(secInput.value) || 0;
+                    widget.data.seconds = (mins * 60) + secs;
+                    widget.data.initialSeconds = widget.data.seconds;
+                    
+                    // Switch to display mode
+                    inputContainer.classList.add('hidden');
+                    display.classList.remove('hidden');
+                }
+                
+                if (widget.data.seconds <= 0) {
+                    widget.data.seconds = 300; // Default 5 min if somehow 0
+                    widget.data.initialSeconds = 300;
+                }
+                
+                updateTimerDisplay(id);
+                
+                widget.data.running = true;
+                btn.textContent = 'Pause';
+                btn.classList.remove('start');
+                btn.classList.add('pause');
+                
+                widget.data.interval = setInterval(() => {
+                    if (widget.data.seconds > 0) {
+                        widget.data.seconds--;
+                        updateTimerDisplay(id);
+                    } else {
+                        clearInterval(widget.data.interval);
+                        widget.data.running = false;
+                        btn.textContent = 'Start';
+                        btn.classList.remove('pause');
+                        btn.classList.add('start');
+                        // Flash effect when done
+                        widget.element.style.boxShadow = '0 0 60px rgba(255,217,61,0.8)';
+                        setTimeout(() => {
+                            widget.element.style.boxShadow = '';
+                        }, 2000);
+                    }
+                }, 1000);
+            } else {
+                // Pause
+                widget.data.running = false;
+                btn.textContent = 'Start';
+                btn.classList.remove('pause');
+                btn.classList.add('start');
+                clearInterval(widget.data.interval);
+            }
+        }
+
+        window.resetTimer = function(id) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (!widget) return;
+            clearInterval(widget.data.interval);
+            widget.data.running = false;
+            
+            // Show input fields again, hide display
+            const inputContainer = document.getElementById(`timer-input-container-${id}`);
+            const display = document.getElementById(`timer-display-${id}`);
+            if (inputContainer) inputContainer.classList.remove('hidden');
+            if (display) display.classList.add('hidden');
+            
+            const btn = widget.element.querySelector('.timer-btn.start');
+            btn.textContent = 'Start';
+            btn.classList.remove('pause');
+            btn.classList.add('start');
+        }
+
+        window.setTimer = function(id, minutes) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (!widget) return;
+            clearInterval(widget.data.interval);
+            widget.data.running = false;
+            
+            // Update the input fields
+            const minInput = document.getElementById(`timer-min-${id}`);
+            const secInput = document.getElementById(`timer-sec-${id}`);
+            if (minInput) minInput.value = minutes;
+            if (secInput) secInput.value = '00';
+            
+            // Make sure inputs are visible
+            const inputContainer = document.getElementById(`timer-input-container-${id}`);
+            const display = document.getElementById(`timer-display-${id}`);
+            if (inputContainer) inputContainer.classList.remove('hidden');
+            if (display) display.classList.add('hidden');
+            
+            const btn = widget.element.querySelector('.timer-btn.start');
+            btn.textContent = 'Start';
+            btn.classList.remove('pause');
+            btn.classList.add('start');
+        }
+
+        // Stopwatch functions
+        window.toggleStopwatch = function(id) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (!widget) return;
+            
+            widget.data.running = !widget.data.running;
+            const btn = widget.element.querySelector('.timer-btn.start');
+            
+            if (widget.data.running) {
+                btn.textContent = 'Pause';
+                btn.classList.remove('start');
+                btn.classList.add('pause');
+                widget.data.interval = setInterval(() => {
+                    widget.data.ms += 10;
+                    const totalSeconds = Math.floor(widget.data.ms / 1000);
+                    const mins = Math.floor(totalSeconds / 60);
+                    const secs = totalSeconds % 60;
+                    const ms = Math.floor((widget.data.ms % 1000) / 10);
+                    document.getElementById(`stopwatch-${id}`).textContent = 
+                        `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    document.getElementById(`stopwatch-ms-${id}`).textContent = `.${String(ms).padStart(2, '0')}`;
+                }, 10);
+            } else {
+                btn.textContent = 'Start';
+                btn.classList.remove('pause');
+                btn.classList.add('start');
+                clearInterval(widget.data.interval);
+            }
+        }
+
+        window.resetStopwatch = function(id) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (!widget) return;
+            clearInterval(widget.data.interval);
+            widget.data.running = false;
+            widget.data.ms = 0;
+            document.getElementById(`stopwatch-${id}`).textContent = '00:00';
+            document.getElementById(`stopwatch-ms-${id}`).textContent = '.00';
+            const btn = widget.element.querySelector('.timer-btn.start');
+            btn.textContent = 'Start';
+            btn.classList.remove('pause');
+            btn.classList.add('start');
+        }
+
+        // Dice functions
+        window.rollDice = function(id) {
+            const dice1 = document.getElementById(`dice1-${id}`);
+            const dice2 = document.getElementById(`dice2-${id}`);
+            
+            dice1.classList.add('rolling');
+            dice2.classList.add('rolling');
+            
+            let rolls = 0;
+            const rollInterval = setInterval(() => {
+                dice1.textContent = Math.floor(Math.random() * 6) + 1;
+                dice2.textContent = Math.floor(Math.random() * 6) + 1;
+                rolls++;
+                if (rolls > 10) {
+                    clearInterval(rollInterval);
+                    dice1.classList.remove('rolling');
+                    dice2.classList.remove('rolling');
+                }
+            }, 50);
+        }
+
+        // Name picker functions
+        window.switchRandomizerTab = function(id, tab) {
+            const pickerTab = document.getElementById(`randomizer-picker-${id}`);
+            const groupsTab = document.getElementById(`randomizer-groups-${id}`);
+            const widget = document.getElementById(`widget-${id}`);
+            const tabs = widget.querySelectorAll('.randomizer-tab');
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            if (tab === 'picker') {
+                pickerTab.classList.remove('hidden');
+                groupsTab.classList.add('hidden');
+                tabs[0].classList.add('active');
+            } else {
+                pickerTab.classList.add('hidden');
+                groupsTab.classList.remove('hidden');
+                tabs[1].classList.add('active');
+            }
+        }
+
+        window.adjustGroupCount = function(id, delta) {
+            const display = document.getElementById(`group-count-${id}`);
+            let count = parseInt(display.textContent) + delta;
+            count = Math.max(2, Math.min(10, count)); // Between 2 and 10 groups
+            display.textContent = count;
+        }
+
+        window.makeGroups = function(id) {
+            const input = document.getElementById(`name-input-${id}`);
+            const resultContainer = document.getElementById(`groups-result-${id}`);
+            const groupCount = parseInt(document.getElementById(`group-count-${id}`).textContent);
+            
+            const names = input.value.split('\n').filter(n => n.trim());
+            
+            if (names.length === 0) {
+                resultContainer.innerHTML = '<p style="text-align:center; color: var(--text-muted);">Add names in the Name Picker tab first!</p>';
+                return;
+            }
+            
+            if (names.length < groupCount) {
+                resultContainer.innerHTML = `<p style="text-align:center; color: var(--text-muted);">Not enough names for ${groupCount} groups. You have ${names.length} names.</p>`;
+                return;
+            }
+            
+            // Shuffle names
+            const shuffled = [...names].sort(() => Math.random() - 0.5);
+            
+            // Create groups
+            const groups = Array.from({ length: groupCount }, () => []);
+            
+            shuffled.forEach((name, index) => {
+                groups[index % groupCount].push(name.trim());
+            });
+            
+            // Animate and display
+            resultContainer.innerHTML = '<p style="text-align:center; color: var(--text-muted);">Shuffling...</p>';
+            
+            setTimeout(() => {
+                let html = '';
+                groups.forEach((group, index) => {
+                    html += `
+                        <div class="group-card">
+                            <div class="group-card-header">Group ${index + 1}</div>
+                            <div class="group-card-members">
+                                ${group.map(name => `<span class="group-member">${name}</span>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+                resultContainer.innerHTML = html;
+            }, 500);
+        }
+
+        window.pickName = function(id) {
+            const input = document.getElementById(`name-input-${id}`);
+            const display = document.getElementById(`name-display-${id}`);
+            const names = input.value.split('\n').filter(n => n.trim());
+            
+            if (names.length === 0) {
+                display.textContent = 'Add some names first!';
+                return;
+            }
+            
+            display.classList.add('picking');
+            
+            let picks = 0;
+            const pickInterval = setInterval(() => {
+                display.textContent = names[Math.floor(Math.random() * names.length)];
+                picks++;
+                if (picks > 15) {
+                    clearInterval(pickInterval);
+                    display.classList.remove('picking');
+                    display.textContent = names[Math.floor(Math.random() * names.length)];
+                }
+            }, 80);
+        }
+
+        // Traffic light
+        window.setTrafficLight = function(bulb, color) {
+            const container = bulb.parentElement;
+            container.querySelectorAll('.traffic-light-bulb').forEach(b => b.classList.remove('active'));
+            bulb.classList.add('active');
+        }
+
+        // QR Code
+        window.generateQR = function(id) {
+            const input = document.getElementById(`qr-input-${id}`);
+            const img = document.getElementById(`qr-img-${id}`);
+            const url = encodeURIComponent(input.value);
+            img.src = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${url}`;
+        }
+
+        // ============== POLL FUNCTIONS ==============
+        window.switchPollTab = function(id, tab) {
+            const typeTab = document.getElementById(`poll-tab-type-${id}`);
+            const settingsTab = document.getElementById(`poll-tab-settings-${id}`);
+            const tabs = document.querySelectorAll(`#poll-container-${id} .poll-tab`);
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            if (tab === 'type') {
+                typeTab.classList.remove('hidden');
+                settingsTab.classList.add('hidden');
+                tabs[0].classList.add('active');
+            } else {
+                typeTab.classList.add('hidden');
+                settingsTab.classList.remove('hidden');
+                tabs[1].classList.add('active');
+            }
+        }
+
+        window.selectPollTypeOption = function(id, type, btn) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (!widget) return;
+            
+            widget.data.pollType = type;
+            
+            // Update UI
+            const selector = document.getElementById(`poll-type-selector-${id}`);
+            selector.querySelectorAll('.poll-type-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Update answer options based on type
+            updateAnswerOptions(id, type);
+        }
+
+        function updateAnswerOptions(id, type) {
+            const container = document.getElementById(`poll-answer-options-${id}`);
+            
+            if (type === 'abc') {
+                container.innerHTML = `
+                    <label class="poll-radio-option">
+                        <input type="radio" name="poll-answers-${id}" value="2" onchange="setPollAnswerCount(${id}, 2)">
+                        <span style="background:#4ecdc4">A</span><span style="background:#a8e6cf">B</span>
+                    </label>
+                    <label class="poll-radio-option">
+                        <input type="radio" name="poll-answers-${id}" value="3" checked onchange="setPollAnswerCount(${id}, 3)">
+                        <span style="background:#4ecdc4">A</span><span style="background:#a8e6cf">B</span><span style="background:#ffd93d">C</span>
+                    </label>
+                    <label class="poll-radio-option">
+                        <input type="radio" name="poll-answers-${id}" value="4" onchange="setPollAnswerCount(${id}, 4)">
+                        <span style="background:#4ecdc4">A</span><span style="background:#a8e6cf">B</span><span style="background:#ffd93d">C</span><span style="background:#fab1a0">D</span>
+                    </label>
+                    <label class="poll-radio-option">
+                        <input type="radio" name="poll-answers-${id}" value="5" onchange="setPollAnswerCount(${id}, 5)">
+                        <span style="background:#4ecdc4">A</span><span style="background:#a8e6cf">B</span><span style="background:#ffd93d">C</span><span style="background:#fab1a0">D</span><span style="background:#ff6b6b">E</span>
+                    </label>
+                `;
+            } else if (type === 'smiley') {
+                container.innerHTML = `
+                    <label class="poll-radio-option">
+                        <input type="radio" name="poll-answers-${id}" value="2" onchange="setPollAnswerCount(${id}, 2)">
+                        <span style="background:#4ecdc4">😊</span><span style="background:#ff6b6b">😟</span>
+                    </label>
+                    <label class="poll-radio-option">
+                        <input type="radio" name="poll-answers-${id}" value="3" checked onchange="setPollAnswerCount(${id}, 3)">
+                        <span style="background:#4ecdc4">😊</span><span style="background:#ffd93d">😐</span><span style="background:#ff6b6b">😟</span>
+                    </label>
+                    <label class="poll-radio-option">
+                        <input type="radio" name="poll-answers-${id}" value="4" onchange="setPollAnswerCount(${id}, 4)">
+                        <span style="background:#4ecdc4">😊</span><span style="background:#a8e6cf">🙂</span><span style="background:#ffd93d">😐</span><span style="background:#ff6b6b">😟</span>
+                    </label>
+                    <label class="poll-radio-option">
+                        <input type="radio" name="poll-answers-${id}" value="5" onchange="setPollAnswerCount(${id}, 5)">
+                        <span style="background:#4ecdc4">😊</span><span style="background:#a8e6cf">🙂</span><span style="background:#ffd93d">😐</span><span style="background:#fab1a0">🙁</span><span style="background:#ff6b6b">😟</span>
+                    </label>
+                `;
+            } else if (type === 'truefalse') {
+                container.innerHTML = `
+                    <label class="poll-radio-option">
+                        <input type="radio" name="poll-answers-${id}" value="2" checked onchange="setPollAnswerCount(${id}, 2)">
+                        <span style="background:#4ecdc4">✓</span><span style="background:#ff6b6b">✗</span>
+                    </label>
+                `;
+            }
+        }
+
+        window.setPollAnswerCount = function(id, count) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (widget) {
+                widget.data.answerCount = count;
+            }
+        }
+
+        window.setPollChartType = function(id, chartType) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (widget) {
+                widget.data.chartType = chartType;
+                if (widget.data.pollStarted) {
+                    renderPollChart(id);
+                }
+            }
+        }
+
+        window.startPoll = function(id) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (!widget) return;
+            
+            // Get settings
+            const question = document.getElementById(`poll-question-${id}`).value.trim();
+            const hideResults = document.getElementById(`poll-hide-results-${id}`).checked;
+            const answerCount = widget.data.answerCount || 3;
+            const pollType = widget.data.pollType || 'abc';
+            const chartType = widget.data.chartType || 'bar';
+            
+            widget.data.question = question;
+            widget.data.hideResults = hideResults;
+            widget.data.answerCount = answerCount;
+            widget.data.chartType = chartType;
+            widget.data.votes = {};
+            widget.data.pollStarted = true;
+            
+            // Hide setup, show poll
+            document.getElementById(`poll-tab-type-${id}`).classList.add('hidden');
+            document.getElementById(`poll-tab-settings-${id}`).classList.add('hidden');
+            document.querySelector(`#poll-container-${id} .poll-tabs`).classList.add('hidden');
+            document.getElementById(`poll-start-btn-${id}`).classList.add('hidden');
+            document.getElementById(`poll-display-${id}`).classList.remove('hidden');
+            document.getElementById(`poll-back-btn-${id}`).classList.remove('hidden');
+            
+            // Set question
+            document.getElementById(`poll-question-display-${id}`).textContent = question;
+            
+            // Generate options
+            const optionsContainer = document.getElementById(`poll-options-${id}`);
+            let optionsHTML = '';
+            let options = [];
+            
+            if (pollType === 'abc') {
+                const letters = ['A', 'B', 'C', 'D', 'E'];
+                const colors = ['#4ecdc4', '#a8e6cf', '#ffd93d', '#fab1a0', '#ff6b6b'];
+                for (let i = 0; i < answerCount; i++) {
+                    options.push({ key: letters[i], display: letters[i], color: colors[i] });
+                }
+            } else if (pollType === 'smiley') {
+                const smileys5 = [
+                    { key: 'great', display: '😊', color: '#4ecdc4' },
+                    { key: 'good', display: '🙂', color: '#a8e6cf' },
+                    { key: 'neutral', display: '😐', color: '#ffd93d' },
+                    { key: 'bad', display: '🙁', color: '#fab1a0' },
+                    { key: 'awful', display: '😟', color: '#ff6b6b' }
+                ];
+                const smileys3 = [smileys5[0], smileys5[2], smileys5[4]];
+                const smileys2 = [smileys5[0], smileys5[4]];
+                const smileys4 = [smileys5[0], smileys5[1], smileys5[2], smileys5[4]];
+                
+                if (answerCount === 2) options = smileys2;
+                else if (answerCount === 3) options = smileys3;
+                else if (answerCount === 4) options = smileys4;
+                else options = smileys5;
+            } else if (pollType === 'truefalse') {
+                options = [
+                    { key: 'true', display: '✓', color: '#4ecdc4' },
+                    { key: 'false', display: '✗', color: '#ff6b6b' }
+                ];
+            }
+            
+            widget.data.options = options;
+            
+            options.forEach(opt => {
+                widget.data.votes[opt.key] = 0;
+                optionsHTML += `
+                    <div class="poll-option" onclick="votePoll(${id}, '${opt.key}')">
+                        <div class="poll-option-circle" style="background: ${opt.color}" data-key="${opt.key}">
+                            ${opt.display}
+                            <span class="poll-option-count" style="border-color: ${opt.color}; ${hideResults ? 'display:none' : ''}">0</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            optionsContainer.innerHTML = optionsHTML;
+            renderPollChart(id);
+        }
+
+        window.votePoll = function(id, optionKey) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (!widget) return;
+            
+            widget.data.votes[optionKey]++;
+            
+            // Update count badge
+            if (!widget.data.hideResults) {
+                const circle = document.querySelector(`#poll-options-${id} .poll-option-circle[data-key="${optionKey}"]`);
+                if (circle) {
+                    const count = circle.querySelector('.poll-option-count');
+                    if (count) count.textContent = widget.data.votes[optionKey];
+                }
+            }
+            
+            // Animate
+            const clickedOpt = event.currentTarget;
+            clickedOpt.style.transform = 'scale(1.2)';
+            setTimeout(() => { clickedOpt.style.transform = ''; }, 150);
+            
+            // Update chart
+            renderPollChart(id);
+        }
+
+        function renderPollChart(id) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (!widget || !widget.data.options) return;
+            
+            const chartContainer = document.getElementById(`poll-chart-${id}`);
+            const chartType = widget.data.chartType || 'bar';
+            const hideResults = widget.data.hideResults;
+            
+            if (hideResults || chartType === 'none') {
+                chartContainer.innerHTML = '';
+                return;
+            }
+            
+            const totalVotes = Object.values(widget.data.votes).reduce((a, b) => a + b, 0);
+            
+            if (chartType === 'bar') {
+                let html = '';
+                widget.data.options.forEach(opt => {
+                    const count = widget.data.votes[opt.key] || 0;
+                    const percent = totalVotes > 0 ? (count / totalVotes * 100) : 0;
+                    html += `
+                        <div class="poll-bar-row">
+                            <div class="poll-bar-label">${opt.display}</div>
+                            <div class="poll-bar-container">
+                                <div class="poll-bar-fill" style="background: ${opt.color}; width: ${Math.max(percent, count > 0 ? 15 : 0)}%">
+                                    ${count > 0 ? count : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                chartContainer.innerHTML = html;
+            } else if (chartType === 'pie') {
+                // Simple pie using conic-gradient
+                let gradientStops = [];
+                let currentAngle = 0;
+                
+                widget.data.options.forEach(opt => {
+                    const count = widget.data.votes[opt.key] || 0;
+                    const percent = totalVotes > 0 ? (count / totalVotes * 100) : 0;
+                    const nextAngle = currentAngle + (percent * 3.6);
+                    gradientStops.push(`${opt.color} ${currentAngle}deg ${nextAngle}deg`);
+                    currentAngle = nextAngle;
+                });
+                
+                if (totalVotes === 0) {
+                    gradientStops = ['rgba(255,255,255,0.1) 0deg 360deg'];
+                }
+                
+                chartContainer.innerHTML = `
+                    <div style="width: 120px; height: 120px; border-radius: 50%; background: conic-gradient(${gradientStops.join(', ')}); margin: 0 auto;"></div>
+                    <div style="text-align: center; margin-top: 8px; color: var(--text-muted); font-size: 12px;">${totalVotes} vote${totalVotes !== 1 ? 's' : ''}</div>
+                `;
+            }
+        }
+
+        window.editPoll = function(id) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (!widget) return;
+            
+            widget.data.pollStarted = false;
+            
+            document.getElementById(`poll-tab-type-${id}`).classList.remove('hidden');
+            document.querySelector(`#poll-container-${id} .poll-tabs`).classList.remove('hidden');
+            document.getElementById(`poll-start-btn-${id}`).classList.remove('hidden');
+            document.getElementById(`poll-display-${id}`).classList.add('hidden');
+            document.getElementById(`poll-back-btn-${id}`).classList.add('hidden');
+            
+            switchPollTab(id, 'type');
+        }
+
+        window.resetPollResults = function(id) {
+            const widget = state.widgets.find(w => w.id === id);
+            if (!widget) return;
+            
+            if (widget.data.votes) {
+                Object.keys(widget.data.votes).forEach(key => {
+                    widget.data.votes[key] = 0;
+                });
+            }
+            
+            // Update display if poll is active
+            if (widget.data.pollStarted) {
+                document.querySelectorAll(`#poll-options-${id} .poll-option-count`).forEach(el => {
+                    el.textContent = '0';
+                });
+                renderPollChart(id);
+            }
+        }
+
+        // Character count for poll question
+        document.addEventListener('input', function(e) {
+            if (e.target.classList.contains('poll-question-input')) {
+                const id = e.target.id.replace('poll-question-', '');
+                const countEl = document.getElementById(`poll-char-count-${id}`);
+                if (countEl) {
+                    countEl.textContent = e.target.value.length;
+                }
+            }
+        });
+
+        // TI-84 Calculator popup
+        window.openTI84Popup = function() {
+            const width = 420;
+            const height = 900;
+            const left = (screen.width - width) / 2;
+            const top = (screen.height - height) / 2;
+            
+            window.open(
+                'https://ti84hub.com?embed=true',
+                'TI-84 Calculator',
+                `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`
+            );
+        }
+
+        // ============== CLASS MANAGER FUNCTIONS ==============
+        let activeNamePickerId = null;
+
+        window.openClassManager = function(namePickerId) {
+            activeNamePickerId = namePickerId;
+            document.getElementById('class-manager-modal').classList.remove('hidden');
+            renderSavedClasses();
+        }
+
+        window.closeClassManager = function() {
+            document.getElementById('class-manager-modal').classList.add('hidden');
+            activeNamePickerId = null;
+        }
+
+        window.saveCurrentClass = function() {
+            const className = document.getElementById('new-class-name').value.trim();
+            if (!className) {
+                alert('Please enter a class name');
+                return;
+            }
+            
+            if (!activeNamePickerId) {
+                alert('No name picker selected');
+                return;
+            }
+            
+            const input = document.getElementById(`name-input-${activeNamePickerId}`);
+            if (!input) return;
+            
+            const names = input.value.split('\n').filter(n => n.trim());
+            if (names.length === 0) {
+                alert('No names to save');
+                return;
+            }
+            
+            // Get existing classes
+            const classes = JSON.parse(localStorage.getItem('teacherDashboardClasses') || '{}');
+            classes[className] = names;
+            localStorage.setItem('teacherDashboardClasses', JSON.stringify(classes));
+            
+            document.getElementById('new-class-name').value = '';
+            renderSavedClasses();
+        }
+
+        window.loadClass = function(className) {
+            if (!activeNamePickerId) return;
+            
+            const classes = JSON.parse(localStorage.getItem('teacherDashboardClasses') || '{}');
+            const names = classes[className];
+            
+            if (names) {
+                const input = document.getElementById(`name-input-${activeNamePickerId}`);
+                if (input) {
+                    input.value = names.join('\n');
+                }
+            }
+            
+            closeClassManager();
+        }
+
+        window.deleteClass = function(className) {
+            if (!confirm(`Delete "${className}"?`)) return;
+            
+            const classes = JSON.parse(localStorage.getItem('teacherDashboardClasses') || '{}');
+            delete classes[className];
+            localStorage.setItem('teacherDashboardClasses', JSON.stringify(classes));
+            
+            renderSavedClasses();
+        }
+
+        function renderSavedClasses() {
+            const container = document.getElementById('saved-classes-list');
+            const classes = JSON.parse(localStorage.getItem('teacherDashboardClasses') || '{}');
+            
+            if (Object.keys(classes).length === 0) {
+                container.innerHTML = '<div class="no-classes-message">No saved classes yet</div>';
+                return;
+            }
+            
+            let html = '';
+            for (const [name, students] of Object.entries(classes)) {
+                html += `
+                    <div class="saved-class-item">
+                        <div class="saved-class-info">
+                            <span class="saved-class-name">${name}</span>
+                            <span class="saved-class-count">${students.length} students</span>
+                        </div>
+                        <div class="saved-class-actions">
+                            <button class="btn-load" onclick="loadClass('${name}')">Load</button>
+                            <button class="btn-delete" onclick="deleteClass('${name}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        // ============== LAYOUT MANAGER FUNCTIONS ==============
+        window.closeLayoutManager = function() {
+            document.getElementById('layout-manager-modal').classList.add('hidden');
+        }
+
+        window.saveCurrentLayout = function() {
+            const layoutName = document.getElementById('new-layout-name').value.trim();
+            if (!layoutName) {
+                alert('Please enter a layout name');
+                return;
+            }
+            
+            // Capture current state
+            const bgLayer = document.getElementById('background-layer');
+            const layout = {
+                name: layoutName,
+                savedAt: new Date().toISOString(),
+                background: bgLayer.className || 'default',
+                customBackgroundImage: state.customBackgroundImage || null,
+                widgets: []
+            };
+            
+            // Capture each widget's state
+            state.widgets.forEach(w => {
+                const rect = w.element.getBoundingClientRect();
+                const widgetData = {
+                    type: w.type,
+                    x: parseInt(w.element.style.left) || rect.left,
+                    y: parseInt(w.element.style.top) || rect.top,
+                    width: parseInt(w.element.style.width) || rect.width,
+                    height: w.element.style.height !== 'auto' ? parseInt(w.element.style.height) : null
+                };
+                
+                // Save widget-specific data
+                if (w.type === 'randomizer') {
+                    const input = document.getElementById(`name-input-${w.id}`);
+                    if (input) widgetData.names = input.value;
+                }
+                if (w.type === 'text') {
+                    const textarea = w.element.querySelector('.text-display');
+                    if (textarea) widgetData.text = textarea.value;
+                }
+                if (w.type === 'timer') {
+                    const minInput = document.getElementById(`timer-min-${w.id}`);
+                    const secInput = document.getElementById(`timer-sec-${w.id}`);
+                    if (minInput && secInput) {
+                        widgetData.timerMin = minInput.value;
+                        widgetData.timerSec = secInput.value;
+                    }
+                }
+                if (w.type === 'qr') {
+                    const input = document.getElementById(`qr-input-${w.id}`);
+                    if (input) widgetData.qrUrl = input.value;
+                }
+                if (w.type === 'poll') {
+                    widgetData.pollType = w.data.pollType;
+                    widgetData.question = w.data.question;
+                    widgetData.answerCount = w.data.answerCount;
+                    widgetData.chartType = w.data.chartType;
+                }
+                
+                layout.widgets.push(widgetData);
+            });
+            
+            // Save to localStorage
+            const layouts = JSON.parse(localStorage.getItem('teacherDashboardLayouts') || '{}');
+            layouts[layoutName] = layout;
+            localStorage.setItem('teacherDashboardLayouts', JSON.stringify(layouts));
+            
+            document.getElementById('new-layout-name').value = '';
+            renderSavedLayouts();
+            
+            // Show success feedback
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '✓ Saved!';
+            btn.style.background = '#4ecdc4';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = '';
+            }, 1500);
+        }
+
+        window.loadLayout = function(layoutName) {
+            const layouts = JSON.parse(localStorage.getItem('teacherDashboardLayouts') || '{}');
+            const layout = layouts[layoutName];
+            
+            if (!layout) return;
+            
+            // Clear existing widgets
+            state.widgets.forEach(w => {
+                if (w.data.interval) clearInterval(w.data.interval);
+                w.element.remove();
+            });
+            state.widgets = [];
+            state.widgetIdCounter = 0;
+            
+            // Clear drawing canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Set background
+            const bgLayer = document.getElementById('background-layer');
+            bgLayer.className = layout.background === 'default' ? '' : layout.background;
+            
+            // Handle custom background image
+            if (layout.customBackgroundImage) {
+                bgLayer.style.backgroundImage = `url(${layout.customBackgroundImage})`;
+                bgLayer.style.backgroundSize = 'cover';
+                bgLayer.style.backgroundPosition = 'center';
+                state.customBackgroundImage = layout.customBackgroundImage;
+                document.getElementById('clear-bg-btn').style.display = 'flex';
+                document.querySelectorAll('.bg-option').forEach(b => b.classList.remove('active', 'custom-active'));
+                document.querySelector('.bg-option.upload').classList.add('custom-active');
+            } else {
+                bgLayer.style.backgroundImage = '';
+                state.customBackgroundImage = null;
+                document.getElementById('clear-bg-btn').style.display = 'none';
+                
+                // Update background picker selection
+                document.querySelectorAll('.bg-option').forEach(btn => {
+                    btn.classList.remove('active', 'custom-active');
+                    if (btn.dataset.bg === (layout.background || 'default')) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
+            
+            // Recreate widgets
+            layout.widgets.forEach(wData => {
+                const widget = createWidget(wData.type, wData.x, wData.y);
+                
+                // Restore size
+                if (wData.width) widget.style.width = `${wData.width}px`;
+                if (wData.height) widget.style.height = `${wData.height}px`;
+                
+                // Restore widget-specific data
+                const widgetState = state.widgets[state.widgets.length - 1];
+                
+                if (wData.type === 'randomizer' && wData.names) {
+                    const input = document.getElementById(`name-input-${widgetState.id}`);
+                    if (input) input.value = wData.names;
+                }
+                if (wData.type === 'text' && wData.text) {
+                    const textarea = widget.querySelector('.text-display');
+                    if (textarea) textarea.value = wData.text;
+                }
+                if (wData.type === 'timer') {
+                    const minInput = document.getElementById(`timer-min-${widgetState.id}`);
+                    const secInput = document.getElementById(`timer-sec-${widgetState.id}`);
+                    if (minInput && wData.timerMin) minInput.value = wData.timerMin;
+                    if (secInput && wData.timerSec) secInput.value = wData.timerSec;
+                }
+                if (wData.type === 'qr' && wData.qrUrl) {
+                    const input = document.getElementById(`qr-input-${widgetState.id}`);
+                    if (input) {
+                        input.value = wData.qrUrl;
+                        generateQR(widgetState.id);
+                    }
+                }
+                if (wData.type === 'poll') {
+                    if (wData.pollType) {
+                        widgetState.data.pollType = wData.pollType;
+                        const btn = document.querySelector(`#poll-type-selector-${widgetState.id} .poll-type-btn[data-type="${wData.pollType}"]`);
+                        if (btn) selectPollTypeOption(widgetState.id, wData.pollType, btn);
+                    }
+                    if (wData.question) {
+                        const qInput = document.getElementById(`poll-question-${widgetState.id}`);
+                        if (qInput) qInput.value = wData.question;
+                    }
+                    if (wData.answerCount) widgetState.data.answerCount = wData.answerCount;
+                    if (wData.chartType) widgetState.data.chartType = wData.chartType;
+                }
+            });
+            
+            closeLayoutManager();
+        }
+
+        window.deleteLayout = function(layoutName) {
+            if (!confirm(`Delete layout "${layoutName}"?`)) return;
+            
+            const layouts = JSON.parse(localStorage.getItem('teacherDashboardLayouts') || '{}');
+            delete layouts[layoutName];
+            localStorage.setItem('teacherDashboardLayouts', JSON.stringify(layouts));
+            
+            renderSavedLayouts();
+        }
+
+        function renderSavedLayouts() {
+            const container = document.getElementById('saved-layouts-list');
+            const layouts = JSON.parse(localStorage.getItem('teacherDashboardLayouts') || '{}');
+            
+            if (Object.keys(layouts).length === 0) {
+                container.innerHTML = `
+                    <div class="no-layouts-message">
+                        <div class="icon">📋</div>
+                        <p>No saved layouts yet</p>
+                        <p style="font-size: 13px;">Set up your widgets, then save a layout to use it again tomorrow!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            for (const [name, layout] of Object.entries(layouts)) {
+                const date = new Date(layout.savedAt);
+                const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const widgetCount = layout.widgets.length;
+                
+                // Get widget type summary
+                const typeCounts = {};
+                layout.widgets.forEach(w => {
+                    typeCounts[w.type] = (typeCounts[w.type] || 0) + 1;
+                });
+                
+                const widgetTags = Object.entries(typeCounts).map(([type, count]) => 
+                    `<span class="layout-widget-tag">${type}${count > 1 ? ` ×${count}` : ''}</span>`
+                ).join('');
+                
+                html += `
+                    <div class="saved-layout-item">
+                        <div class="saved-layout-info">
+                            <span class="saved-layout-name">${name}</span>
+                            <div class="saved-layout-meta">
+                                <span>📅 ${dateStr}</span>
+                                <span>🧩 ${widgetCount} widget${widgetCount !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div class="layout-widget-preview">${widgetTags}</div>
+                        </div>
+                        <div class="saved-layout-actions">
+                            <button class="btn-load-layout" onclick="loadLayout('${name}')">Load</button>
+                            <button class="btn-delete-layout" onclick="deleteLayout('${name}')">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        // ============== DRAG & RESIZE ==============
+        function makeDraggable(widget) {
+            const header = widget.querySelector('.widget-header');
+            
+            header.addEventListener('mousedown', (e) => {
+                if (state.drawing.active) return;
+                state.activeWidget = widget;
+                const rect = widget.getBoundingClientRect();
+                state.dragOffset = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+                widget.style.zIndex = 1000;
+            });
+        }
+
+        function makeResizable(widget) {
+            const handle = widget.querySelector('.resize-handle');
+            
+            handle.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                state.resizing = true;
+                state.activeWidget = widget;
+                widget.style.zIndex = 1000;
+            });
+
+            // Add ResizeObserver to scale contents (debounced to prevent loop errors)
+            let resizeTimeout;
+            const resizeObserver = new ResizeObserver(entries => {
+                // Clear any pending timeout
+                if (resizeTimeout) cancelAnimationFrame(resizeTimeout);
+                
+                // Use requestAnimationFrame to debounce
+                resizeTimeout = requestAnimationFrame(() => {
+                    for (let entry of entries) {
+                        const width = entry.contentRect.width;
+                        const height = entry.contentRect.height;
+                        scaleWidgetContent(widget, width, height);
+                    }
+                });
+            });
+            resizeObserver.observe(widget);
+        }
+
+        function scaleWidgetContent(widget, width, height) {
+            const contentHeight = height - 60; // Account for header
+            
+            // Scale clock
+            const clockDisplay = widget.querySelector('.clock-display');
+            if (clockDisplay) {
+                const scale = Math.min(width / 280, contentHeight / 100, 2.5);
+                clockDisplay.style.fontSize = `${48 * scale}px`;
+                const dateEl = widget.querySelector('.clock-date');
+                if (dateEl) dateEl.style.fontSize = `${14 * scale}px`;
+            }
+
+            // Scale timer display
+            const timerDisplay = widget.querySelector('.timer-display');
+            if (timerDisplay) {
+                const scale = Math.min(width / 280, contentHeight / 180, 2.5);
+                timerDisplay.style.fontSize = `${56 * scale}px`;
+            }
+
+            // Scale timer inputs
+            const timerInputContainer = widget.querySelector('.timer-input-container');
+            if (timerInputContainer) {
+                const scale = Math.min(width / 280, contentHeight / 180, 2.5);
+                const inputs = timerInputContainer.querySelectorAll('.timer-input');
+                inputs.forEach(input => {
+                    input.style.fontSize = `${48 * scale}px`;
+                    input.style.width = `${70 * scale}px`;
+                    input.style.padding = `${8 * scale}px ${4 * scale}px`;
+                });
+                const colon = timerInputContainer.querySelector('.timer-colon');
+                if (colon) colon.style.fontSize = `${48 * scale}px`;
+            }
+
+            // Scale timer controls and presets
+            const timerControls = widget.querySelector('.timer-controls');
+            if (timerControls) {
+                const scale = Math.min(width / 280, contentHeight / 180, 2);
+                timerControls.style.gap = `${10 * scale}px`;
+                timerControls.style.marginTop = `${16 * scale}px`;
+                timerControls.querySelectorAll('.timer-btn').forEach(btn => {
+                    btn.style.padding = `${10 * scale}px ${20 * scale}px`;
+                    btn.style.fontSize = `${14 * scale}px`;
+                });
+            }
+
+            // Scale stopwatch
+            const stopwatchDisplay = widget.querySelector('.stopwatch-display');
+            if (stopwatchDisplay) {
+                const scale = Math.min(width / 260, contentHeight / 140, 2.5);
+                stopwatchDisplay.style.fontSize = `${42 * scale}px`;
+                const ms = stopwatchDisplay.querySelector('.stopwatch-ms');
+                if (ms) ms.style.fontSize = `${24 * scale}px`;
+            }
+
+            // Scale dice
+            const diceContainer = widget.querySelector('.dice-container');
+            if (diceContainer) {
+                const scale = Math.min(width / 220, contentHeight / 180, 2.5);
+                const dice = widget.querySelectorAll('.dice');
+                dice.forEach(d => {
+                    d.style.width = `${70 * scale}px`;
+                    d.style.height = `${70 * scale}px`;
+                    d.style.fontSize = `${36 * scale}px`;
+                    d.style.borderRadius = `${14 * scale}px`;
+                });
+                const rollBtn = widget.querySelector('.roll-btn');
+                if (rollBtn) {
+                    rollBtn.style.padding = `${12 * scale}px ${32 * scale}px`;
+                    rollBtn.style.fontSize = `${16 * scale}px`;
+                }
+                diceContainer.style.gap = `${16 * scale}px`;
+            }
+
+            // Scale traffic light
+            const trafficLight = widget.querySelector('.traffic-light');
+            if (trafficLight) {
+                const scale = Math.min(width / 140, contentHeight / 260, 2.5);
+                const bulbs = trafficLight.querySelectorAll('.traffic-light-bulb');
+                bulbs.forEach(b => {
+                    b.style.width = `${60 * scale}px`;
+                    b.style.height = `${60 * scale}px`;
+                });
+                trafficLight.style.gap = `${12 * scale}px`;
+                trafficLight.style.padding = `${20 * scale}px`;
+                trafficLight.style.borderRadius = `${30 * scale}px`;
+            }
+
+            // Scale name picker
+            const namePickerContent = widget.querySelector('.name-picker-content');
+            if (namePickerContent) {
+                const scale = Math.min(width / 280, contentHeight / 220, 2);
+                const nameDisplay = widget.querySelector('.name-display');
+                if (nameDisplay) {
+                    nameDisplay.style.fontSize = `${24 * scale}px`;
+                    nameDisplay.style.minHeight = `${60 * scale}px`;
+                }
+                const pickBtn = widget.querySelector('.pick-btn');
+                if (pickBtn) {
+                    pickBtn.style.padding = `${12 * scale}px ${24 * scale}px`;
+                    pickBtn.style.fontSize = `${16 * scale}px`;
+                }
+            }
+
+            // Scale text display
+            const textDisplay = widget.querySelector('.text-display');
+            if (textDisplay) {
+                const scale = Math.min(width / 300, contentHeight / 140, 2);
+                textDisplay.style.fontSize = `${24 * scale}px`;
+            }
+
+            // Scale QR code
+            const qrContent = widget.querySelector('.qr-content');
+            if (qrContent) {
+                const scale = Math.min((width - 40) / 160, (contentHeight - 60) / 160, 2.5);
+                const qrImg = widget.querySelector('.qr-display img');
+                if (qrImg) {
+                    const size = Math.floor(120 * scale);
+                    qrImg.style.width = `${size}px`;
+                    qrImg.style.height = `${size}px`;
+                }
+            }
+
+            // Scale TI-84 calculator
+            const ti84Container = widget.querySelector('.ti84-container');
+            if (ti84Container) {
+                ti84Container.style.minHeight = `${contentHeight - 20}px`;
+                const iframe = ti84Container.querySelector('.ti84-iframe');
+                if (iframe) {
+                    iframe.style.minHeight = `${contentHeight - 20}px`;
+                }
+            }
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            if (state.activeWidget && !state.resizing) {
+                state.activeWidget.style.left = `${e.clientX - state.dragOffset.x}px`;
+                state.activeWidget.style.top = `${e.clientY - state.dragOffset.y}px`;
+            } else if (state.resizing && state.activeWidget) {
+                const rect = state.activeWidget.getBoundingClientRect();
+                const newWidth = e.clientX - rect.left;
+                const newHeight = e.clientY - rect.top;
+                if (newWidth > 150) state.activeWidget.style.width = `${newWidth}px`;
+                if (newHeight > 100) state.activeWidget.style.height = `${newHeight}px`;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (state.activeWidget) {
+                state.activeWidget.style.zIndex = '';
+            }
+            state.activeWidget = null;
+            state.resizing = false;
+        });
+
+        // ============== INITIAL WIDGETS ==============
+        createWidget('clock', 50, 50);
+        createWidget('timer', 400, 50);
+    </script>
+</body>
+</html>
